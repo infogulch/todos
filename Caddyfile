@@ -1,0 +1,12 @@
+:8080
+
+route /static/* {
+    file_server
+}
+
+route {
+	templates2 {
+        root templates
+        database sqlite3 todos.db?_journal=WAL&_vacuum=full&_foreign_keys=true&_synchronous=NORMAL
+    }
+}

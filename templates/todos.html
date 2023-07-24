@@ -1,0 +1,102 @@
+{{define "INIT todos.html"}}
+{{.Exec `CREATE TABLE IF NOT EXISTS todo(id TEXT PRIMARY KEY, label TEXT, done INT CHECK (done IN (0,1))) STRICT;`}}
+{{end -}}
+
+<!DOCTYPE html>
+<html>
+
+<title>Todo List</title>
+{{template "head"}}
+
+<body class="container mx-auto py-10">
+    {{template "nav" .}}
+    <section class="max-w-md mx-auto">
+        <header class="input-group py-4">
+            <h1>Todo List</h1>
+            {{block "toggleall" .}}
+            {{$alldone := .QueryVal "SELECT COUNT(id) > 0 AND SUM(done)=COUNT(id) FROM todo"}}
+            <input id="todos-toggleall" type="checkbox" {{if $alldone}}checked{{end}}
+                hx-post="/todos/toggleall" hx-target="this" hx-swap-oob="true"
+                class="checkbox checkbox-lg" />
+            {{end}}
+            {{block "input" .}}
+            <input type="text" id="newtodo" name="newtodo" placeholder="What needs to be done?" autofocus required
+                hx-post="/todos/new" hx-target="#todos-list" hx-swap="afterbegin" hx-swap-oob="true"
+                class="input input-sm w-full" />
+            {{end}}
+        </header>
+        {{block "list" .}}
+        <ul id="todos-list" hx-swap-oob="true">
+            {{range .QueryRows "SELECT id, label, done FROM todo ORDER BY id ASC"}}
+            {{block "todo" .}}
+            <li class="input-group py-1" hx-target="this" hx-swap="outerHTML">
+                <input class="checkbox" type="checkbox" {{if .done}}checked{{end}}
+                    hx-post="/todos/todo/{{.id}}/toggle" />
+                <label class="label-text w-full mx-2">{{.label}}</label>
+                <button class="button btn-error px-2" hx-delete="/todos/todo/{{.id}}">✕</button>
+            </li>
+            {{end}}
+            {{end}}
+        </ul>
+        {{end}}
+        <footer class="mt-5 flex flex-row">
+            {{block "count" .}}
+            {{$count := .QueryVal `SELECT COUNT(done) FROM todo WHERE done=0`}}
+            <span id="todos-count" hx-swap-oob="true">
+                <strong>{{$count}}</strong> {{if eq $count 1}}item{{else}}items{{end}} left
+            </span>
+            {{end}}
+            <div class="grow"></div>
+            <fieldset class="flex-end" hx-swap="none">
+                {{range .QueryRows `SELECT column1 filter, column2 as selected FROM (VALUES ('all',1),('completed',0),('remaining',0))`}}
+                <input class="radio inline-block align-middle ml-4"
+                    type="radio" id="filter-{{.filter}}" name="filter" value="{{.filter}}" {{if
+                    .selected}}checked{{end}}
+                    hx-post="./todos?filter={{.filter}}" />
+                <label class="label-text capitalize inline-block align-middle cursor-pointer"
+                    for="filter-{{.filter}}">{{.filter}}</label>
+                {{end}}
+            </fieldset>
+        </footer>
+    </section>
+    <style>
+        input[type=checkbox]:checked+label {
+            text-decoration: line-through;
+        }
+    </style>
+</body>
+
+</html>
+
+{{define "POST /todos/new"}}
+{{- $id := uuid}}
+{{- $_ := .Req.PostForm.newtodo | idx 0 | .Exec `INSERT INTO todo(id,label,done) VALUES ($1,$2,0)` $id}}
+{{- $todo := .QueryRow `SELECT id,label,done FROM todo WHERE id=$1` $id}}
+{{- template "todo" $todo}}
+{{- template "toggleall" .}}
+{{- template "count" .}}
+{{- template "input" .}}
+{{end}}
+
+{{define "POST /todos/toggleall"}}
+{{- $alldone := .QueryVal "SELECT COUNT(id) > 0 AND SUM(done)=COUNT(id) FROM todo"}}
+{{- $_ := .Exec `UPDATE todo SET done=$1` (not $alldone)}}
+{{- template "list" .}}
+{{- template "toggleall" .}}
+{{- template "count" .}}
+{{end}}
+
+{{define "POST /todos/todo/:id/toggle"}}
+{{- $id := .Params.ByName "id"}}
+{{- $_ := .Exec `UPDATE todo SET done=NOT done WHERE id=$1` $id}}
+{{- $todo := .QueryRow `SELECT id,label,done FROM todo WHERE id=$1` $id}}
+{{- template "todo" $todo}}
+{{- template "toggleall" .}}
+{{- template "count" .}}
+{{end}}
+
+{{define "DELETE /todos/todo/:id"}}
+{{- $_ := .Req.Form.id | idx 0 | .Exec `DELETE FROM todo WHERE id=$1`}}
+{{- template "toggleall" .}}
+{{- template "count" .}}
+{{end}}
