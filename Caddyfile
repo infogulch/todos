@@ -5,7 +5,7 @@ route /static/* {
 }
 
 route {
-	templates2 {
+	xtemplates {
         root templates
         database sqlite3 todos.db?_journal=WAL&_vacuum=full&_foreign_keys=true&_synchronous=NORMAL
     }
