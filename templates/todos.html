@@ -96,7 +96,7 @@
 {{end}}
 
 {{define "DELETE /todos/todo/:id"}}
-{{- $_ := .Req.Form.id | idx 0 | .Exec `DELETE FROM todo WHERE id=$1`}}
+{{- $_ := .Params.ByName "id" | .Exec `DELETE FROM todo WHERE id=$1`}}
 {{- template "toggleall" .}}
 {{- template "count" .}}
 {{end}}
